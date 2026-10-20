@@ -1,29 +1,35 @@
 # Google Colab MCP Bridge
 
-A personal MCP bridge hosted on Render. It queues Python snippets for a Google Colab notebook; it does **not** execute submitted code on the Render server.
+A personal MCP bridge hosted on Render. It queues Python snippets for a Google Colab notebook; submitted code is **not** executed on the Render server.
 
-## Current architecture
+## Endpoints and tools
 
-- MCP endpoint: `https://colab-mcp-bridge-3jkv.onrender.com/mcp`
-- Health check: `https://colab-mcp-bridge-3jkv.onrender.com/health`
-- `submit_python_task`: queue a code snippet for Colab.
-- `get_task_result`: retrieve the result by task ID.
+- MCP endpoint: `/mcp`
+- Health check: `/health`
+- `submit_python_task`: queue code for Colab.
+- `get_task_result`: retrieve output by task ID.
 - Colab agent: `colab_agent.py`; displays code and requires the user to type `RUN` before execution.
-- Colab polling endpoints require the `COLAB_BRIDGE_TOKEN` environment variable on Render.
+- `/colab/next` and `/colab/result` require `COLAB_BRIDGE_TOKEN`.
+
+## Persistent storage
+
+For restart-safe task and result storage, configure `DATABASE_URL` to a PostgreSQL database reachable by the Render service. On startup, the bridge creates the two required tables if they do not exist. The database user needs permission to create tables, or an administrator must create the schema before startup.
+
+If `DATABASE_URL` is absent, the service retains a compatibility mode using in-memory storage. In that mode, tasks/results can be lost on restart and may not be shared across instances; `bridge_status` and `/health` identify the storage mode.
+
+The result endpoint verifies the task ID in PostgreSQL before accepting a result, returns the task ID and storage mode, and logs task ID/status/storage/instance (never the bridge token or output text). Unknown task IDs return HTTP 404 instead of a misleading success response. Storage failures return HTTP 503.
 
 ## Setup
 
-1. In Render, set a strong secret environment variable named `COLAB_BRIDGE_TOKEN`. Never commit this token to GitHub.
-2. Open Google Colab and create a Python notebook.
-3. Copy the contents of `colab_agent.py` into a cell and run it. Enter the same token when prompted.
-4. Add the MCP endpoint above to a ChatGPT custom MCP connection if that feature is available in your account.
-5. Use `submit_python_task` to queue code. Inspect it in Colab and type `RUN` only when you trust it. Otherwise type anything else to reject it.
-6. Use `get_task_result` with the task ID to retrieve output.
+1. Set a strong `COLAB_BRIDGE_TOKEN` in Render. Never commit it to GitHub.
+2. Configure `DATABASE_URL` with a PostgreSQL connection string before expecting persistence.
+3. Run `colab_agent.py` in a Google Colab cell and enter the same token when prompted.
+4. Review every task and type `RUN` only when you trust the code. Anything else rejects it.
+5. Call `get_task_result` with the exact task ID returned when the task was queued.
 
-## Important limitations
+## Security and limitations
 
-- The task queue and results are in memory. They can be lost when Render restarts or sleeps.
-- A Colab runtime must remain connected and the agent cell must be running.
-- Python approved in Colab can access that notebook's files, runtime and any credentials available to the runtime. Review every snippet; never paste secrets into task code.
-- This is a personal prototype, not a production execution service. Keep the token private.
+- Approved Python executes in the user's Colab runtime, not on Render. It can access notebook files and credentials available to that runtime; review every snippet and never put secrets in task code.
+- Keep `COLAB_BRIDGE_TOKEN` private.
+- This is a personal prototype, not a production execution service.
 - ChatGPT custom MCP support depends on account/UI availability.
