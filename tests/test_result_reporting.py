@@ -13,6 +13,7 @@ class ResultReportingTests(unittest.TestCase):
         main.DATABASE_URL = ""
         with main._lock:
             main._results.clear()
+            main._known_task_ids.clear()
 
     def tearDown(self):
         main.BRIDGE_TOKEN = self.old_token
@@ -21,6 +22,7 @@ class ResultReportingTests(unittest.TestCase):
             main._results.clear()
 
     def test_result_post_returns_task_id_and_storage_mode(self):
+        main._known_task_ids.add("test-task-123")
         body = main.ResultBody(
             task_id="test-task-123",
             status="completed",
@@ -33,6 +35,7 @@ class ResultReportingTests(unittest.TestCase):
         self.assertEqual(response["storage"], "memory")
 
     def test_result_can_be_retrieved_by_same_task_id(self):
+        main._known_task_ids.add("test-task-456")
         body = main.ResultBody(
             task_id="test-task-456",
             status="completed",
@@ -44,6 +47,7 @@ class ResultReportingTests(unittest.TestCase):
         self.assertIn("Hello from Colab!\n4", result)
 
     def test_invalid_token_is_rejected(self):
+        main._known_task_ids.add("test-task-789")
         body = main.ResultBody(
             task_id="test-task-789",
             status="completed",
@@ -52,6 +56,17 @@ class ResultReportingTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as caught:
             main.post_result(body, "Bearer wrong-token")
         self.assertEqual(caught.exception.status_code, 401)
+
+    def test_unknown_task_id_is_rejected_in_memory_mode(self):
+        body = main.ResultBody(
+            task_id="never-queued-task",
+            status="completed",
+            output="must not be stored",
+        )
+        with self.assertRaises(HTTPException) as caught:
+            main.post_result(body, "Bearer unit-test-token")
+        self.assertEqual(caught.exception.status_code, 404)
+        self.assertNotIn("never-queued-task", main._results)
 
     def test_result_status_validation_rejects_unknown_status(self):
         with self.assertRaises(Exception):
