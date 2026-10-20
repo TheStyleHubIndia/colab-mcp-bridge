@@ -1,6 +1,11 @@
+import os
 from mcp.server.fastmcp import FastMCP
 
-mcp = FastMCP("colab-mcp-bridge")
+mcp = FastMCP(
+    "colab-mcp-bridge",
+    host="0.0.0.0",
+    port=int(os.environ.get("PORT", "10000")),
+)
 
 @mcp.tool()
 def bridge_status() -> str:
