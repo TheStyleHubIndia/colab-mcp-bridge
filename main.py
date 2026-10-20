@@ -35,6 +35,7 @@ async def lifespan(_app):
 app = FastAPI(title="Google Colab MCP Bridge", version="0.3.0", lifespan=lifespan)
 _tasks = deque(maxlen=50)
 _results = {}
+_known_task_ids = set()
 _lock = Lock()
 
 
@@ -112,6 +113,7 @@ def submit_python_task(code: str, description: str = "Python task") -> str:
         else:
             with _lock:
                 _tasks.append(task)
+                _known_task_ids.add(task["task_id"])
     except Exception:
         logger.exception("task_enqueue_failed task_id=%s instance=%s", task["task_id"], INSTANCE_ID)
         return "Task was not queued because storage failed. Check bridge logs and DATABASE_URL."
@@ -190,6 +192,9 @@ def post_result(body: ResultBody, authorization: Optional[str] = Header(default=
                 conn.execute("UPDATE colab_tasks SET status = %s WHERE task_id = %s", (body.status, body.task_id))
         else:
             with _lock:
+                if body.task_id not in _known_task_ids:
+                    logger.warning("result_unknown_task task_id=%s instance=%s", body.task_id, INSTANCE_ID)
+                    raise HTTPException(status_code=404, detail="Unknown task_id; result was not stored.")
                 _results[body.task_id] = {
                     "status": body.status,
                     "output": body.output,
