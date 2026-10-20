@@ -20,6 +20,7 @@ class ResultReportingTests(unittest.TestCase):
         main.DATABASE_URL = self.old_database_url
         with main._lock:
             main._results.clear()
+            main._known_task_ids.clear()
 
     def test_result_post_returns_task_id_and_storage_mode(self):
         main._known_task_ids.add("test-task-123")
