@@ -69,6 +69,14 @@ class ResultReportingTests(unittest.TestCase):
         self.assertEqual(caught.exception.status_code, 404)
         self.assertNotIn("never-queued-task", main._results)
 
+    def test_known_task_id_registry_is_bounded(self):
+        with main._lock:
+            for i in range(main.KNOWN_TASK_ID_LIMIT + 1):
+                main._known_task_ids.append(f"registry-task-{i}")
+            self.assertEqual(len(main._known_task_ids), main.KNOWN_TASK_ID_LIMIT)
+            self.assertNotIn("registry-task-0", main._known_task_ids)
+            self.assertIn(f"registry-task-{main.KNOWN_TASK_ID_LIMIT}", main._known_task_ids)
+
     def test_result_status_validation_rejects_unknown_status(self):
         with self.assertRaises(Exception):
             main.ResultBody(
