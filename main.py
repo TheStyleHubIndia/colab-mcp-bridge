@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 import time
 import uuid
 from collections import deque
@@ -13,7 +14,13 @@ PORT = int(os.environ.get("PORT", "10000"))
 BRIDGE_TOKEN = os.environ.get("COLAB_BRIDGE_TOKEN", "")
 
 mcp = FastMCP("colab-mcp-bridge", host="0.0.0.0", port=PORT)
-app = FastAPI(title="Google Colab MCP Bridge", version="0.2.0")
+@asynccontextmanager
+async def lifespan(_app):
+    async with mcp.session_manager.run():
+        yield
+
+
+app = FastAPI(title="Google Colab MCP Bridge", version="0.2.0", lifespan=lifespan)
 
 _tasks = deque(maxlen=50)
 _results = {}
