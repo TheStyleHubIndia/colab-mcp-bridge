@@ -35,7 +35,9 @@ async def lifespan(_app):
 app = FastAPI(title="Google Colab MCP Bridge", version="0.3.0", lifespan=lifespan)
 _tasks = deque(maxlen=50)
 _results = {}
-_known_task_ids = set()
+# Bound the in-memory task-ID registry so compatibility mode cannot grow without limit.
+KNOWN_TASK_ID_LIMIT = 5000
+_known_task_ids = deque(maxlen=KNOWN_TASK_ID_LIMIT)
 _lock = Lock()
 
 
@@ -113,7 +115,7 @@ def submit_python_task(code: str, description: str = "Python task") -> str:
         else:
             with _lock:
                 _tasks.append(task)
-                _known_task_ids.add(task["task_id"])
+                _known_task_ids.append(task["task_id"])
     except Exception:
         logger.exception("task_enqueue_failed task_id=%s instance=%s", task["task_id"], INSTANCE_ID)
         return "Task was not queued because storage failed. Check bridge logs and DATABASE_URL."
