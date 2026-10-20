@@ -106,3 +106,8 @@ def get_task_result(task_id: str) -> str:
 
 
 app.mount("/", mcp.streamable_http_app())
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
