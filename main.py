@@ -149,7 +149,8 @@ def next_task(authorization: Optional[str] = Header(default=None)):
                         SELECT task_id FROM colab_tasks
                         WHERE status = 'queued'
                         ORDER BY created_at
-                        FOR UPDATE SKIP LOCKED LIMIT 1
+                        LIMIT 1
+                        FOR UPDATE SKIP LOCKED
                     )
                     UPDATE colab_tasks AS t
                     SET status = 'claimed', claimed_at = NOW()
